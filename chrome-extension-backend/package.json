@@ -1,0 +1,16 @@
+{
+  "name": "invoice-automation-api",
+  "version": "1.0.0",
+  "description": "Backend API for Invoice Automation Chrome Extension",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "openai": "^4.20.1"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  }
+}

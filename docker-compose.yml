@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  po-workflow-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: po-workflow-backend
+    restart: unless-stopped
+    ports:
+      - "3002:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./document:/app/document
+      - ./server/.browser-data:/app/.browser-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - po-workflow-network
+
+  po-workflow-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: po-workflow-frontend
+    restart: unless-stopped
+    ports:
+      - "3003:80"
+    depends_on:
+      - po-workflow-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - po-workflow-network
+
+networks:
+  po-workflow-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  document:
+  browser-data:

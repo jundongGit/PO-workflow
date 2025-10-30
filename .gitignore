@@ -6,6 +6,10 @@ package-lock.json
 uploads/*
 !uploads/.gitkeep
 
+# Documents (PDF files for automation)
+document/*
+!document/.gitkeep
+
 # Environment
 .env
 .env.local
@@ -24,3 +28,15 @@ dist/
 .playwright/
 playwright-report/
 test-results/
+
+# Browser session data
+.browser-data/
+server/.env
+
+# n8n related files (removed from project)
+n8n-*.html
+n8n-workflows/
+
+# Chrome Extension packaged versions (contain API keys, should not be committed)
+InvoiceAutomation-ChromeExtension-*.zip
+InvoiceAutomation-ChromeExtension-*/

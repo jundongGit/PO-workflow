@@ -6,7 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { processPDF } from './pdfProcessor.js';
 import { processPDFWithAI } from './aiProcessor.js';
-import { automateProcore } from './playwrightAutomation.js';
+import { automateProcore, closeBrowser, addLogListener, clearLogListeners } from './playwrightAutomation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,10 +18,14 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-// Ensure uploads directory exists
+// Ensure uploads and document directories exist
 const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+const DOCUMENT_DIR = path.join(__dirname, '../../document');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+if (!fs.existsSync(DOCUMENT_DIR)) {
+  fs.mkdirSync(DOCUMENT_DIR, { recursive: true });
 }
 
 // File metadata storage (in production, use a database)
@@ -42,6 +46,17 @@ const storage = multer.diskStorage({
     req.savedFilename = savedFilename;
 
     cb(null, savedFilename);
+  }
+});
+
+// Configure multer for document storage (keeps original filename)
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, DOCUMENT_DIR);
+  },
+  filename: (req, file, cb) => {
+    // Keep original filename
+    cb(null, file.originalname);
   }
 });
 
@@ -99,12 +114,24 @@ app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
       }
     }
 
+    // Copy file to document folder with original filename
+    const originalFilename = req.originalFilename || req.file.originalname;
+    const documentPath = path.join(DOCUMENT_DIR, originalFilename);
+
+    try {
+      fs.copyFileSync(filePath, documentPath);
+      console.log(`File copied to document folder: ${documentPath}`);
+    } catch (copyError) {
+      console.error('Failed to copy file to document folder:', copyError);
+    }
+
     // Store file metadata
     const metadata = {
       id: fileName,
-      originalName: req.originalFilename || req.file.originalname,
+      originalName: originalFilename,
       savedName: fileName,
       filePath: filePath,
+      documentPath: documentPath, // Path to the document folder copy
       uploadDate: new Date().toISOString(),
       fileSize: req.file.size,
       invoiceNumber: result.invoiceNumber,
@@ -142,13 +169,26 @@ app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
 // Trigger Procore automation
 app.post('/api/automate', async (req, res) => {
   try {
-    const { clientOrderNumber, invoiceNumber } = req.body;
+    const { clientOrderNumber, invoiceNumber, totalAmount, fileId } = req.body;
 
     if (!clientOrderNumber) {
       return res.status(400).json({ error: 'Client Order Number is required' });
     }
 
-    const result = await automateProcore(clientOrderNumber, invoiceNumber);
+    // Get PDF file path from metadata if fileId is provided
+    let pdfFilePath = null;
+    if (fileId) {
+      const metadata = fileMetadata.get(fileId);
+      if (metadata) {
+        // Use documentPath (file in document folder) instead of filePath (file in uploads folder)
+        pdfFilePath = metadata.documentPath || metadata.filePath;
+        console.log(`Using PDF file: ${pdfFilePath}`);
+      } else {
+        console.warn(`File ID ${fileId} not found in metadata`);
+      }
+    }
+
+    const result = await automateProcore(clientOrderNumber, invoiceNumber, totalAmount, pdfFilePath);
 
     res.json({
       success: true,
@@ -252,6 +292,46 @@ app.delete('/api/files/:id', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete file',
+      details: error.message
+    });
+  }
+});
+
+// Real-time automation logs (Server-Sent Events)
+app.get('/api/automation-logs', (req, res) => {
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Log stream connected' })}\n\n`);
+
+  // Add log listener
+  const removeListener = addLogListener((logEntry) => {
+    res.write(`data: ${JSON.stringify({ type: 'log', ...logEntry })}\n\n`);
+  });
+
+  // Handle client disconnect
+  req.on('close', () => {
+    removeListener();
+    res.end();
+  });
+});
+
+// Close browser
+app.post('/api/browser/close', async (req, res) => {
+  try {
+    await closeBrowser();
+    res.json({
+      success: true,
+      message: 'Browser closed successfully'
+    });
+  } catch (error) {
+    console.error('Error closing browser:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to close browser',
       details: error.message
     });
   }

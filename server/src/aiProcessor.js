@@ -89,23 +89,31 @@ async function extractInvoiceDataWithAI(imagePath) {
 
 1. Invoice Number (may also be labeled as: Invoice #, Invoice No, INV, Bill Number, etc.)
 2. Client Order Number (may also be labeled as: PO Number, Purchase Order, Client PO, Order Number, P.O. #, etc.)
+3. Total Amount Excluding GST/Tax (may be labeled as: Subtotal, Amount Ex GST, Net Amount, Pre-tax Total, etc.)
+   - Extract the amount BEFORE GST/tax is added
+   - Return as a number without currency symbols
+   - If there's a "Total Ex GST" or "Subtotal" field, use that
+   - If only "Total Inc GST" is available, calculate: Total Inc GST / 1.10 (assuming 10% GST)
 
 Return the extracted information in JSON format with the following structure:
 {
   "invoiceNumber": "extracted value or null if not found",
   "clientOrderNumber": "extracted value or null if not found",
+  "totalAmountExGST": "numeric value or null if not found",
   "confidence": {
     "invoiceNumber": "high/medium/low/none",
-    "clientOrderNumber": "high/medium/low/none"
+    "clientOrderNumber": "high/medium/low/none",
+    "totalAmountExGST": "high/medium/low/none"
   },
   "notes": "any relevant notes about the extraction"
 }
 
 IMPORTANT:
 - Be precise and extract the exact values as they appear
+- For totalAmountExGST, return only the numeric value (e.g., "989.40" not "$989.40")
 - If a field is not found, set it to null
 - Indicate confidence level based on clarity and certainty
-- Look carefully for alternative labels (PO#, Order No., etc.)`
+- Look carefully for alternative labels (PO#, Order No., Subtotal, etc.)`
             },
             {
               type: "image_url",
@@ -141,9 +149,11 @@ IMPORTANT:
     return {
       invoiceNumber: result.invoiceNumber,
       clientOrderNumber: result.clientOrderNumber,
+      totalAmountExGST: result.totalAmountExGST,
       confidence: result.confidence || {
         invoiceNumber: result.invoiceNumber ? 'high' : 'none',
-        clientOrderNumber: result.clientOrderNumber ? 'high' : 'none'
+        clientOrderNumber: result.clientOrderNumber ? 'high' : 'none',
+        totalAmountExGST: result.totalAmountExGST ? 'high' : 'none'
       },
       notes: result.notes || '',
       aiModel: 'gpt-4o',

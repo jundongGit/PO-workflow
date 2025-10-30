@@ -2,6 +2,8 @@
   "name": "invoice-automation",
   "version": "1.0.0",
   "description": "Invoice PDF processing and Procore automation application",
+  "author": "Your Company",
+  "main": "electron/main.js",
   "private": true,
   "workspaces": [
     "client",
@@ -11,9 +13,64 @@
     "install-all": "npm install && cd server && npm install && cd ../client && npm install",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm start"
+    "dev:client": "cd client && npm start",
+    "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev:server\" \"npm run dev:client\" \"wait-on http://localhost:3000 http://localhost:3001 && electron .\"",
+    "electron:build:client": "cd client && npm run build",
+    "electron:build": "npm run electron:build:client && electron-builder",
+    "electron:build:mac": "npm run electron:build:client && electron-builder --mac",
+    "electron:build:win": "npm run electron:build:client && electron-builder --win",
+    "electron:build:all": "npm run electron:build:client && electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "com.yourcompany.invoiceautomation",
+    "productName": "Invoice Automation",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "client/build/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!node_modules/@playwright/test",
+          "!node_modules/playwright/.local-browsers"
+        ]
+      }
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "assets/icon.png",
+      "category": "Office"
+    }
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "electron": "^38.4.0",
+    "electron-builder": "^26.0.12",
+    "wait-on": "^9.0.1"
   }
 }

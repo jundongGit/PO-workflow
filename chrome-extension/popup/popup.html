@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Automation</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Update Banner -->
+    <div id="updateBanner" class="update-banner" style="display: none;">
+      <div class="update-icon">🎉</div>
+      <div class="update-content">
+        <div class="update-title">发现新版本 v<span id="updateVersion"></span></div>
+        <div class="update-message" id="updateMessage"></div>
+      </div>
+      <div class="update-actions">
+        <button id="updateDownloadBtn" class="update-btn update-btn-primary">下载更新</button>
+        <button id="updateDismissBtn" class="update-btn update-btn-secondary">稍后</button>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+      <h1>📄 Invoice Automation</h1>
+      <p class="subtitle">AI-powered invoice processing for Procore</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="uploadSection" class="section">
+      <div class="upload-area">
+        <!-- File Input (Hidden) -->
+        <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
+
+        <!-- Upload Button -->
+        <label for="pdfFileInput" class="upload-btn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>选择PDF文件</span>
+        </label>
+
+        <!-- Drop Zone -->
+        <div id="dropZone" class="drop-zone">
+          <svg class="icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <p>或拖拽PDF文件到这里</p>
+          <span class="file-hint">支持PDF格式，最佳体验10MB以内</span>
+        </div>
+
+        <!-- Selected File Display -->
+        <div id="fileNameDisplay" class="file-display" style="display: none;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span id="fileName" class="file-name"></span>
+          <button id="clearFileBtn" class="clear-btn">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progressSection" class="section" style="display: none;">
+      <div class="progress-container">
+        <div class="progress-header">
+          <span id="progressStatus">处理中...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="step" id="step1">
+            <div class="step-icon">📄</div>
+            <div class="step-label">读取PDF</div>
+          </div>
+          <div class="step" id="step2">
+            <div class="step-icon">🖼️</div>
+            <div class="step-label">转换图片</div>
+          </div>
+          <div class="step" id="step3">
+            <div class="step-icon">🤖</div>
+            <div class="step-label">AI识别</div>
+          </div>
+          <div class="step" id="step4">
+            <div class="step-icon">✅</div>
+            <div class="step-label">完成</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Section -->
+    <div id="resultSection" class="section" style="display: none;">
+      <div class="result-header">
+        <h2>✅ 识别结果</h2>
+        <div class="confidence-badge" id="confidenceBadge">
+          <span>置信度: </span>
+          <span id="confidenceLevel">高</span>
+        </div>
+      </div>
+
+      <div class="result-fields">
+        <div class="field-group">
+          <label for="invoiceNumberInput">
+            <span class="label-text">Invoice Number</span>
+            <span class="label-required">*</span>
+          </label>
+          <input type="text" id="invoiceNumberInput" class="field-input" placeholder="38183">
+          <div class="field-confidence" id="invoiceConfidence"></div>
+        </div>
+
+        <div class="field-group">
+          <label for="clientOrderNumberInput">
+            <span class="label-text">Client Order Number</span>
+            <span class="label-required">*</span>
+          </label>
+          <input type="text" id="clientOrderNumberInput" class="field-input" placeholder="3scott-06">
+          <div class="field-confidence" id="clientOrderConfidence"></div>
+        </div>
+
+        <div class="field-group">
+          <label for="totalAmountInput">
+            <span class="label-text">Total Amount (Ex GST)</span>
+          </label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">$</span>
+            <input type="text" id="totalAmountInput" class="field-input" placeholder="989.40">
+          </div>
+          <div class="field-confidence" id="totalAmountConfidence"></div>
+        </div>
+
+        <div class="notes-section" id="notesSection" style="display: none;">
+          <div class="notes-header">📝 AI备注</div>
+          <div class="notes-content" id="notesContent"></div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="editBtn" class="btn btn-secondary">
+          ✏️ 修改信息
+        </button>
+        <button id="automateBtn" class="btn btn-primary">
+          🚀 开始自动化
+        </button>
+      </div>
+    </div>
+
+    <!-- Automation Section -->
+    <div id="automationSection" class="section" style="display: none;">
+      <div class="automation-header">
+        <h2>🚀 自动化执行中</h2>
+        <div class="automation-status" id="automationStatus">
+          <span class="status-dot"></span>
+          <span id="automationStatusText">正在执行...</span>
+        </div>
+      </div>
+
+      <div class="log-container">
+        <div class="log-header">
+          <span>📋 执行日志</span>
+          <button id="clearLogBtn" class="clear-log-btn">清除</button>
+        </div>
+        <div class="log-content" id="logContent">
+          <div class="log-entry log-info">
+            <span class="log-time">00:00:00</span>
+            <span class="log-message">准备开始自动化...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="automation-data" id="automationData">
+        <h3>📝 当前处理信息</h3>
+        <div class="data-item">
+          <span class="data-label">Invoice Number:</span>
+          <span class="data-value" id="autoInvoiceNumber">-</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Client Order Number:</span>
+          <span class="data-value" id="autoClientOrderNumber">-</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Total Amount:</span>
+          <span class="data-value" id="autoTotalAmount">-</span>
+        </div>
+      </div>
+
+      <div class="automation-actions">
+        <button id="stopAutomationBtn" class="btn btn-secondary">
+          ⏸️ 停止执行
+        </button>
+        <button id="newTaskBtn" class="btn btn-secondary" style="display: none;">
+          📄 处理新文件
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="errorSection" class="section error-section" style="display: none;">
+      <div class="error-icon">⚠️</div>
+      <div class="error-message" id="errorMessage"></div>
+      <button id="retryBtn" class="btn btn-secondary">重试</button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-links">
+        <a href="#" id="checkUpdateLink">🔄 检查更新</a>
+        <a href="#" id="settingsLink">⚙️ 设置</a>
+        <a href="#" id="helpLink">❓ 帮助</a>
+      </div>
+      <div class="footer-text">
+        <span id="versionText">v1.2.0</span> · Powered by OpenAI GPT-4o
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
