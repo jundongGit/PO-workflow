@@ -33,7 +33,34 @@ AI-powered invoice processing and Procore automation directly in your browser.
 
 ## 📦 Installation
 
-### Method 1: Automated Install (Recommended)
+### Method 1: One-Click Update Script ⭐ (Recommended)
+
+**Fastest way to install/update! Only 2 steps, 30 seconds.**
+
+**Mac/Linux:**
+```bash
+# 1. Download and run
+chmod +x update-extension.sh
+./update-extension.sh
+
+# 2. Complete in Chrome (2 clicks)
+# ✓ Remove old version
+# ✓ Load new version
+```
+
+**Windows:**
+```batch
+# 1. Double-click
+update-extension.bat
+
+# 2. Complete in Chrome (2 clicks)
+# ✓ Remove old version
+# ✓ Paste path and load
+```
+
+**Download scripts from**: [Latest Release](https://github.com/jundongGit/PO-workflow/releases/latest)
+
+### Method 2: Automated Install
 
 **Windows:**
 ```batch
