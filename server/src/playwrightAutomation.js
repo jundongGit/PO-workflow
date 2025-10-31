@@ -144,11 +144,13 @@ async function initBrowser() {
   const context = await chromium.launchPersistentContext(BROWSER_DATA_DIR, {
     headless: false,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
-    viewport: { width: 1920, height: 1080 },
+    viewport: null,
     slowMo: 100,
     args: [
       '--disable-blink-features=AutomationControlled',
-      '--no-sandbox'
+      '--no-sandbox',
+      '--start-maximized',
+      '--window-position=0,0'
     ]
   });
 

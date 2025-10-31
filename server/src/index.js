@@ -171,6 +171,12 @@ app.post('/api/automate', async (req, res) => {
   try {
     const { clientOrderNumber, invoiceNumber, totalAmount, fileId } = req.body;
 
+    console.log('=== Automation Request Received ===');
+    console.log('Client Order Number:', clientOrderNumber);
+    console.log('Invoice Number:', invoiceNumber);
+    console.log('Total Amount:', totalAmount);
+    console.log('File ID:', fileId);
+
     if (!clientOrderNumber) {
       return res.status(400).json({ error: 'Client Order Number is required' });
     }
@@ -178,14 +184,21 @@ app.post('/api/automate', async (req, res) => {
     // Get PDF file path from metadata if fileId is provided
     let pdfFilePath = null;
     if (fileId) {
+      console.log(`Looking up fileId: ${fileId}`);
+      console.log('Available fileIds in metadata:', Array.from(fileMetadata.keys()));
       const metadata = fileMetadata.get(fileId);
       if (metadata) {
         // Use documentPath (file in document folder) instead of filePath (file in uploads folder)
         pdfFilePath = metadata.documentPath || metadata.filePath;
+        console.log(`✅ Found metadata for fileId: ${fileId}`);
+        console.log(`Document path: ${metadata.documentPath}`);
+        console.log(`File path: ${metadata.filePath}`);
         console.log(`Using PDF file: ${pdfFilePath}`);
       } else {
-        console.warn(`File ID ${fileId} not found in metadata`);
+        console.error(`❌ File ID ${fileId} not found in metadata`);
       }
+    } else {
+      console.warn('⚠️ No fileId provided in request');
     }
 
     const result = await automateProcore(clientOrderNumber, invoiceNumber, totalAmount, pdfFilePath);

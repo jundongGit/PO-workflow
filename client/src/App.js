@@ -101,7 +101,7 @@ function App() {
     handleFile(selectedFile);
   };
 
-  const handleFile = (selectedFile) => {
+  const handleFile = async (selectedFile) => {
     if (!selectedFile) return;
 
     if (selectedFile.type !== 'application/pdf') {
@@ -115,7 +115,57 @@ function App() {
     }
 
     setFile(selectedFile);
-    setMessage('');
+
+    // Auto load PDF preview
+    const url = URL.createObjectURL(selectedFile);
+    setPdfUrl(url);
+
+    // Auto upload and process
+    setUploading(true);
+    setProcessingProgress(0);
+
+    try {
+      setProcessingProgress(10);
+      addLog({ level: 'INFO', message: '正在上传 PDF 文件...', timestamp: new Date().toISOString() });
+
+      const formData = new FormData();
+      formData.append('pdf', selectedFile);
+
+      setProcessingProgress(30);
+      addLog({ level: 'INFO', message: 'PDF转图片处理中...', timestamp: new Date().toISOString() });
+
+      const response = await fetch('/api/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setProcessingProgress(100);
+        addLog({ level: 'INFO', message: '✅ AI 提取完成！', timestamp: new Date().toISOString() });
+        addLog({ level: 'INFO', message: `发票号: ${result.data.invoiceNumber || 'N/A'}`, timestamp: new Date().toISOString() });
+        addLog({ level: 'INFO', message: `订单号: ${result.data.clientOrderNumber || 'N/A'}`, timestamp: new Date().toISOString() });
+        addLog({ level: 'INFO', message: `金额: ${result.data.totalAmountExGST || 'N/A'}`, timestamp: new Date().toISOString() });
+
+        setInvoiceNumber(result.data.invoiceNumber || '');
+        setClientOrderNumber(result.data.clientOrderNumber || '');
+        setTotalAmount(result.data.totalAmountExGST || '');
+        setFileId(result.fileInfo.id);
+
+        setTimeout(() => {
+          setProcessingProgress(0);
+        }, 2000);
+      } else {
+        setProcessingProgress(0);
+        addLog({ level: 'ERROR', message: 'PDF处理失败: ' + (result.error || '未知错误'), timestamp: new Date().toISOString() });
+      }
+    } catch (error) {
+      setProcessingProgress(0);
+      addLog({ level: 'ERROR', message: '上传失败: ' + error.message, timestamp: new Date().toISOString() });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -182,14 +232,13 @@ function App() {
 
   const handleAutomation = async () => {
     if (!clientOrderNumber) {
-      showMessage('Client Order Number 不能为空', 'error');
+      addLog({ level: 'ERROR', message: 'Client Order Number 不能为空', timestamp: new Date().toISOString() });
       return;
     }
 
     setAutomating(true);
     setShowSteps(true);
     setProcessingProgress(0);
-    setLogs([]); // Clear previous logs
 
     // Step 1 & 2 already completed
     updateStep(1, 'completed');
@@ -199,7 +248,10 @@ function App() {
     try {
       // Step 3: Automation
       updateStep(3, 'active');
-      showMessage(`发票号: ${invoiceNumber}\n订单号: ${clientOrderNumber}\n正在启动 Procore 自动化...`, 'info');
+      addLog({ level: 'INFO', message: '=== 开始 Procore 自动化 ===', timestamp: new Date().toISOString() });
+      addLog({ level: 'INFO', message: `发票号: ${invoiceNumber}`, timestamp: new Date().toISOString() });
+      addLog({ level: 'INFO', message: `订单号: ${clientOrderNumber}`, timestamp: new Date().toISOString() });
+      addLog({ level: 'INFO', message: `金额: ${totalAmount}`, timestamp: new Date().toISOString() });
 
       const response = await fetch('/api/automate', {
         method: 'POST',
@@ -224,22 +276,17 @@ function App() {
         updateStep(4, 'completed');
         setProcessingProgress(100);
 
-        showMessage(
-          `✅ 自动化完成！\n发票号: ${invoiceNumber}\n订单号: ${clientOrderNumber}\n已完成步骤: ${result.data.completedSteps?.join(', ') || '所有步骤'}`,
-          'success'
-        );
+        addLog({ level: 'INFO', message: '=== ✅ 自动化完成 ===', timestamp: new Date().toISOString() });
 
-        setShowConfirmation(false);
-
-        // Reset after 5 seconds
+        // Reset after 3 seconds
         setTimeout(() => {
-          handleClear();
-        }, 5000);
+          setProcessingProgress(0);
+        }, 3000);
       } else {
-        showMessage('自动化失败: ' + (result.error || '未知错误'), 'error');
+        addLog({ level: 'ERROR', message: '自动化失败: ' + (result.error || '未知错误'), timestamp: new Date().toISOString() });
       }
     } catch (error) {
-      showMessage('自动化失败: ' + error.message, 'error');
+      addLog({ level: 'ERROR', message: '自动化失败: ' + error.message, timestamp: new Date().toISOString() });
     } finally {
       setAutomating(false);
     }
@@ -293,170 +340,84 @@ function App() {
 
   return (
     <div className="App">
-      <div className="container">
+      {/* Header */}
+      <div className="app-header">
         <h1>📄 Invoice PDF 自动化上传</h1>
         <p className="subtitle">上传 PDF 发票，自动提取信息并同步到 Procore</p>
+      </div>
 
-        <div
-          className={`upload-area ${dragOver ? 'dragover' : ''}`}
-          onClick={() => fileInputRef.current.click()}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <div className="upload-icon">📁</div>
-          <div className="upload-text">点击或拖拽 PDF 文件到这里</div>
-          <div className="upload-hint">仅支持 PDF 格式，最大 10MB</div>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,application/pdf"
-          onChange={handleFileInputChange}
-          style={{ display: 'none' }}
-        />
-
-        {file && (
-          <div className="file-info show">
-            <div className="file-name">📄 {file.name}</div>
-            <div className="file-size">{(file.size / 1024).toFixed(2)} KB</div>
-          </div>
-        )}
-
-        {pdfUrl && (
-          <div className="pdf-preview-area show">
-            <div className="pdf-preview-title">
-              PDF 预览
-              <button
-                className="pdf-preview-toggle"
-                onClick={() => setShowPreview(!showPreview)}
-              >
-                {showPreview ? '收起 ▲' : '展开 ▼'}
-              </button>
+      <div className="container">
+        {/* Left Panel - Data & Logs */}
+        <div className="left-panel">
+          {/* Extracted Data Section */}
+          <div className="data-section">
+            <div className="data-section-header">
+              📊 提取的数据
+              {uploading && <span className="loading-spinner">⏳ 处理中...</span>}
             </div>
-            {showPreview && (
-              <div className="pdf-preview-container">
-                <iframe src={pdfUrl} title="PDF Preview"></iframe>
-              </div>
-            )}
-          </div>
-        )}
+            <div className="data-section-content">
+              {invoiceNumber || clientOrderNumber || totalAmount ? (
+                <>
+                  <div className="data-field-edit">
+                    <label className="data-field-label">发票号</label>
+                    <input
+                      type="text"
+                      className="data-field-input"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      placeholder="例如: 335397"
+                    />
+                  </div>
+                  <div className="data-field-edit">
+                    <label className="data-field-label">订单号/PO号</label>
+                    <input
+                      type="text"
+                      className="data-field-input"
+                      value={clientOrderNumber}
+                      onChange={(e) => setClientOrderNumber(e.target.value)}
+                      placeholder="例如: KIWIWASTE-006"
+                    />
+                  </div>
+                  <div className="data-field-edit">
+                    <label className="data-field-label">不含税金额</label>
+                    <input
+                      type="text"
+                      className="data-field-input"
+                      value={totalAmount}
+                      onChange={(e) => setTotalAmount(e.target.value)}
+                      placeholder="例如: 1137.81"
+                    />
+                  </div>
 
-        {showConfirmation && (
-          <div className="confirmation-area show">
-            <div className="confirmation-title">请确认提取的信息</div>
-            <div className="extracted-data">
-              <div className="data-field">
-                <div className="data-label">Invoice Number (发票号)</div>
-                <input
-                  type="text"
-                  className={`data-input ${invoiceNumber !== originalInvoiceNumber ? 'modified' : ''}`}
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  placeholder="例如: #335397"
-                />
-              </div>
-              <div className="data-field">
-                <div className="data-label">Client Order Number (订单号/PO号)</div>
-                <input
-                  type="text"
-                  className={`data-input ${clientOrderNumber !== originalClientOrderNumber ? 'modified' : ''}`}
-                  value={clientOrderNumber}
-                  onChange={(e) => setClientOrderNumber(e.target.value)}
-                  placeholder="例如: KIWIWASTE-006"
-                />
-              </div>
-              <div className="data-field">
-                <div className="data-label">Total Amount Ex GST (不含税总金额)</div>
-                <input
-                  type="text"
-                  className={`data-input ${totalAmount !== originalTotalAmount ? 'modified' : ''}`}
-                  value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
-                  placeholder="例如: 989.40"
-                />
-              </div>
+                  <button
+                    className="btn-automation"
+                    onClick={handleAutomation}
+                    disabled={automating || !clientOrderNumber}
+                  >
+                    {automating ? '⏳ 自动化执行中...' : '▶️ 开始自动化'}
+                  </button>
+                </>
+              ) : (
+                <div className="data-item-empty">
+                  {uploading ? '⏳ 正在提取数据...' : '等待上传 PDF 文件...'}
+                </div>
+              )}
             </div>
-            <div className="confirmation-hint">
-              💡 提示：请检查并确认以上信息是否正确。您可以手动修改任何字段。确认无误后点击下方按钮开始自动化。
-            </div>
-            <button
-              className="btn btn-confirm"
-              onClick={handleAutomation}
-              disabled={automating || !clientOrderNumber}
-            >
-              {automating ? '自动化执行中...' : '✅ 确认并开始自动化'}
-            </button>
-            <button
-              className="btn btn-cancel"
-              onClick={handleCancel}
-              disabled={automating}
-            >
-              ❌ 取消
-            </button>
           </div>
-        )}
 
-        {!showConfirmation && (
-          <>
-            <button
-              className="btn btn-primary"
-              onClick={handleUpload}
-              disabled={!file || uploading}
-            >
-              {uploading ? '处理中...' : '上传 PDF 并提取信息'}
-            </button>
-
-            {file && (
-              <button
-                className="btn btn-secondary"
-                onClick={handleClear}
-              >
-                清除并重新选择
-              </button>
-            )}
-          </>
-        )}
-
-        {processingProgress > 0 && (
-          <div className="progress show">
-            <div className="progress-bar" style={{ width: `${processingProgress}%` }}></div>
-          </div>
-        )}
-
-        {message && (
-          <div className={`status show ${messageType}`}>
-            {message.split('\n').map((line, i) => (
-              <div key={i}>{line}</div>
-            ))}
-          </div>
-        )}
-
-        {showSteps && (
-          <div className="steps show">
-            {steps.map(step => (
-              <div key={step.id} className={`step ${step.status}`}>
-                <span className="step-icon">{getStepIcon(step.status)}</span>
-                <span>{step.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {(logs.length > 0 || automating) && (
-          <div className="log-console show" ref={logConsoleRef}>
-            <div style={{ color: '#999', marginBottom: '10px', fontWeight: 'bold' }}>
+          {/* Logs Section */}
+          <div className="log-console">
+            <div className="log-console-header">
               📋 实时自动化日志
             </div>
-            <div>
-              {logs.length === 0 && automating ? (
+            <div className="log-console-content" ref={logConsoleRef}>
+              {logs.length === 0 ? (
                 <div className="log-entry INFO">
                   <span className="log-time">
                     {new Date().toLocaleTimeString('zh-CN')}
                   </span>
                   <span className="log-level INFO">INFO</span>
-                  <span className="log-message">等待自动化日志...</span>
+                  <span className="log-message">等待操作...</span>
                 </div>
               ) : (
                 logs.map((log, index) => (
@@ -471,7 +432,36 @@ function App() {
               )}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Right Panel - PDF Preview Only */}
+        <div className="right-panel">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
+
+          {pdfUrl ? (
+            <div className="pdf-preview-fullscreen">
+              <iframe src={pdfUrl} title="PDF Preview"></iframe>
+            </div>
+          ) : (
+            <div
+              className={`pdf-upload-placeholder ${dragOver ? 'dragover' : ''}`}
+              onClick={() => fileInputRef.current.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="placeholder-icon">📄</div>
+              <div className="placeholder-text">点击或拖拽 PDF 文件查看</div>
+              <div className="placeholder-hint">支持 PDF 格式，最大 10MB</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

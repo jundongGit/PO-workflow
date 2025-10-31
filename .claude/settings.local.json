@@ -49,7 +49,19 @@
       "Bash(git push:*)",
       "Bash(git tag:*)",
       "Bash(git rm:*)",
-      "Bash(git commit --amend -m \"$(cat <<''EOF''\nfeat: v1.2.0 - 新增 Chrome 扩展在线更新功能\n\n主要更新：\n- 新增自动更新检查功能（每24小时）\n- 支持手动检查更新\n- 配置 GitHub 仓库信息\n- 新版本发布时自动通知用户\n- 完善项目文档和部署指南\n\n技术改进：\n- 集成 OpenAI GPT-4 Vision API（需用户自行配置 API Key）\n- 完善 Chrome 扩展功能\n- 添加 Playwright 自动化测试支持\n- 移除打包文件，避免提交敏感信息\n\n安全改进：\n- 从源代码中移除 API Key，需要用户部署后自行配置\n- 更新 .gitignore，忽略打包文件\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit --amend -m \"$(cat <<''EOF''\nfeat: v1.2.0 - 新增 Chrome 扩展在线更新功能\n\n主要更新：\n- 新增自动更新检查功能（每24小时）\n- 支持手动检查更新\n- 配置 GitHub 仓库信息\n- 新版本发布时自动通知用户\n- 完善项目文档和部署指南\n\n技术改进：\n- 集成 OpenAI GPT-4 Vision API（需用户自行配置 API Key）\n- 完善 Chrome 扩展功能\n- 添加 Playwright 自动化测试支持\n- 移除打包文件，避免提交敏感信息\n\n安全改进：\n- 从源代码中移除 API Key，需要用户部署后自行配置\n- 更新 .gitignore，忽略打包文件\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh release create:*)",
+      "Bash(InvoiceAutomation-ChromeExtension-v1.2.0.zip)",
+      "Bash(gh release view:*)",
+      "Bash(cat:*)",
+      "Bash(git commit:*)",
+      "Bash(InvoiceAutomation-ChromeExtension-v1.4.3.zip )",
+      "Bash(./update-extension.sh:*)",
+      "Read(//Users/jundong/ChromeExtensions/InvoiceAutomation/**)",
+      "Bash(gh release upload:*)",
+      "Bash(gh release edit:*)",
+      "Bash(BROWSER=none npm start)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []
