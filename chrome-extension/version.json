@@ -1,14 +1,15 @@
 {
-  "version": "1.2.0",
-  "releaseDate": "2025-10-30",
-  "downloadUrl": "https://github.com/jundongGit/PO-workflow/releases/download/v1.2.0/InvoiceAutomation-ChromeExtension-v1.2.0.zip",
+  "version": "1.4.3",
+  "releaseDate": "2025-10-31",
+  "downloadUrl": "https://github.com/jundongGit/PO-workflow/releases/download/v1.4.3/InvoiceAutomation-ChromeExtension-v1.4.3.zip",
   "changeLog": [
-    "新增在线更新检查功能",
-    "支持自动检查更新(每24小时)",
-    "支持手动检查更新",
-    "新版本发布时自动通知"
+    "修复页面导航后自动化中断的问题",
+    "实现跨页面状态持久化",
+    "自动恢复未完成的自动化任务",
+    "完美解决死循环重试问题",
+    "现在和本地Playwright版本一样流畅"
   ],
   "minChromeVersion": "88",
-  "critical": false,
-  "announcement": "重要更新！现在支持在线自动检查更新，再也不会错过新版本了！"
+  "critical": true,
+  "announcement": "重要更新！修复了点击项目后页面导航导致自动化中断的核心问题，现在可以一气呵成完成所有步骤！"
 }

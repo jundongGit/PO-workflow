@@ -198,19 +198,38 @@ async function handleAnalyzeInvoice(data, sendResponse) {
   }
 }
 
+/**
+ * Get API configuration from storage
+ */
+async function getApiConfig() {
+  const result = await chrome.storage.local.get(['openai_api_key', 'openai_api_url']);
+
+  const apiKey = result.openai_api_key || CONFIG.OPENAI_API_KEY;
+  const apiUrl = result.openai_api_url || CONFIG.OPENAI_API_URL;
+
+  if (!apiKey) {
+    throw new Error('未配置 OpenAI API Key，请在设置页面中配置');
+  }
+
+  return { apiKey, apiUrl };
+}
+
 // Analyze Invoice using OpenAI API
 async function analyzeInvoice(imageData, fileName, attempt = 1) {
   try {
     console.log(`Calling OpenAI API (attempt ${attempt}/${CONFIG.RETRY_ATTEMPTS})`);
 
+    // Get API configuration from storage
+    const { apiKey, apiUrl } = await getApiConfig();
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
 
-    const response = await fetch(CONFIG.OPENAI_API_URL, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CONFIG.OPENAI_API_KEY}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: 'gpt-4o',

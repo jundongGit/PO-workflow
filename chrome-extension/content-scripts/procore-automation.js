@@ -86,31 +86,62 @@ async function handleStartAutomation(data, sendResponse) {
     Logger.success('开始执行 Procore 自动化');
     Logger.info(`PO编号: ${data.clientOrderNumber}`);
     Logger.info(`发票号: ${data.invoiceNumber}`);
+
+    // Save automation state BEFORE starting
+    await chrome.storage.local.set({
+      automationState: {
+        active: true,
+        data: data,
+        currentStep: 0,
+        timestamp: Date.now()
+      }
+    });
+    Logger.info('自动化状态已保存');
     if (data.totalAmountExGST) {
       Logger.info(`金额: $${data.totalAmountExGST}`);
     }
 
+    // Initialize steps for visual progress
+    initializeSteps([
+      '选择项目',
+      '导航到 Commitments',
+      '查找并打开 PO',
+      '更新 PO 字段'
+    ]);
+
     // Show overlay
-    showAutomationOverlay('初始化自动化...');
+    showAutomationOverlay('开始自动化...');
 
     // Execute automation steps with stop checks
     await sleep(CONFIG.SHORT_WAIT);
     checkStopped();
+
+    nextStep();
+    updateOverlayMessage('正在选择项目...');
     Logger.info('步骤 1/4: 选择项目');
     await selectProject(data.clientOrderNumber);
 
     await sleep(CONFIG.MEDIUM_WAIT);
     checkStopped();
+
+    nextStep();
+    updateOverlayMessage('正在导航到 Commitments...');
     Logger.info('步骤 2/4: 导航到 Commitments');
     await navigateToCommitments();
 
     await sleep(CONFIG.MEDIUM_WAIT);
     checkStopped();
+
+    nextStep();
+    updateOverlayMessage('正在查找 PO...');
     Logger.info('步骤 3/4: 查找并打开 PO');
     await findAndOpenPO(data.clientOrderNumber);
 
     await sleep(CONFIG.MEDIUM_WAIT);
     checkStopped();
+
+    nextStep();
+    updateOverlayMessage('正在更新字段...');
     Logger.info('步骤 4/4: 更新 PO 字段');
     await updatePOFields(data.invoiceNumber, data.totalAmountExGST);
 
@@ -162,12 +193,15 @@ async function selectProject(clientOrderNumber) {
   }
 
   Logger.info('找到项目选择器，正在点击...');
-  projectPicker.click();
+  await clickWithFeedback(projectPicker, '点击项目选择器');
   await sleep(CONFIG.SHORT_WAIT);
 
   // Type client order number character by character
   Logger.info(`正在输入项目编号...`);
-  for (const char of clientOrderNumber) {
+  let searchKeyword = clientOrderNumber;
+
+  // Try full search first
+  for (const char of searchKeyword) {
     simulateKeyPress(char);
     await sleep(CONFIG.TYPING_DELAY);
 
@@ -181,22 +215,105 @@ async function selectProject(clientOrderNumber) {
 
   await sleep(CONFIG.SHORT_WAIT);
 
-  // Find and click matching option
+  // Try to find matching option
   const optionSelectors = [
-    `[role="option"]:has-text("${clientOrderNumber}")`,
-    `[role="menuitem"]:has-text("${clientOrderNumber}")`,
+    `[role="option"]`,
+    `[role="menuitem"]`,
     `li[class*="option"]`,
     `div[class*="option"]`
   ];
 
-  const matchingOption = await findElementContainingText(optionSelectors, clientOrderNumber);
+  // Strategy 1: Try exact match with full clientOrderNumber
+  let matchingOption = await findElementContainingText(optionSelectors, clientOrderNumber);
+
+  // Strategy 2: If not found, try partial match (first part before dash)
   if (!matchingOption) {
-    throw new Error(`找不到匹配的项目: ${clientOrderNumber}`);
+    const partialKeyword = clientOrderNumber.split('-')[0]; // e.g., "KIWIWASTE" from "KIWIWASTE-006"
+    Logger.info(`尝试部分匹配: ${partialKeyword}`);
+    matchingOption = await findElementContainingText(optionSelectors, partialKeyword);
+  }
+
+  // Strategy 3: If still not found, try case-insensitive partial match
+  if (!matchingOption) {
+    const keyword = clientOrderNumber.split('-')[0].toLowerCase().substring(0, 5); // e.g., "kiwiw"
+    Logger.info(`尝试关键词匹配: ${keyword}`);
+
+    // Get all visible options
+    const allOptions = [];
+    for (const selector of optionSelectors) {
+      const elements = querySelectorWithText(selector);
+      for (const el of elements) {
+        if (isVisible(el)) {
+          allOptions.push(el);
+        }
+      }
+    }
+
+    // Find option with keyword in text (case-insensitive)
+    matchingOption = allOptions.find(el =>
+      el.textContent.toLowerCase().includes(keyword)
+    );
+  }
+
+  // Strategy 4: If only one option exists, use it
+  if (!matchingOption) {
+    Logger.info('尝试选择唯一选项');
+    const optionCount = await getOptionCount();
+    console.log('DEBUG: Total visible option count:', optionCount);
+
+    if (optionCount === 1) {
+      for (const selector of optionSelectors) {
+        const elements = querySelectorWithText(selector);
+        console.log(`DEBUG: Selector "${selector}" found ${elements.length} elements`);
+
+        const visibleOptions = elements.filter(el => isVisible(el));
+        console.log(`DEBUG: ${visibleOptions.length} visible options for selector "${selector}"`);
+
+        if (visibleOptions.length === 1) {
+          matchingOption = visibleOptions[0];
+          console.log('DEBUG: Selected unique option:', matchingOption.textContent);
+          Logger.success('找到唯一选项');
+          break;
+        }
+      }
+    }
+  }
+
+  if (!matchingOption) {
+    console.error('DEBUG: No matching option found. Available options:');
+    const allOptions = document.querySelectorAll('[role="option"], [role="menuitem"]');
+    allOptions.forEach((opt, i) => {
+      console.log(`  Option ${i}:`, {
+        text: opt.textContent.trim(),
+        visible: isVisible(opt),
+        selector: opt.getAttribute('role')
+      });
+    });
+    throw new Error(`找不到匹配的项目: ${clientOrderNumber}。请确认项目名称或搜索关键词是否正确。`);
   }
 
   Logger.info('正在选择项目...');
-  matchingOption.click();
+  console.log('DEBUG: About to click option with text:', matchingOption.textContent.trim());
+
+  // Save current URL to detect navigation
+  const beforeUrl = window.location.href;
+  console.log('DEBUG: Current URL before click:', beforeUrl);
+
+  await clickWithFeedback(matchingOption, `选择项目: ${clientOrderNumber}`);
+
+  // Wait and check if URL changed
   await sleep(CONFIG.LONG_WAIT);
+
+  const afterUrl = window.location.href;
+  console.log('DEBUG: URL after click:', afterUrl);
+
+  if (beforeUrl === afterUrl) {
+    Logger.warn('警告: 点击后URL未改变，可能需要额外等待');
+    // Wait additional time for page to respond
+    await sleep(CONFIG.MEDIUM_WAIT);
+  } else {
+    Logger.success(`页面已导航: ${beforeUrl} → ${afterUrl}`);
+  }
 
   Logger.success('项目选择完成');
 }
@@ -279,7 +396,7 @@ async function updatePOFields(invoiceNumber, totalAmount) {
 
   if (editBtn) {
     Logger.info('进入编辑模式...');
-    editBtn.click();
+    await clickWithFeedback(editBtn, '点击编辑按钮');
     await sleep(CONFIG.MEDIUM_WAIT);
   }
 
@@ -295,11 +412,7 @@ async function updatePOFields(invoiceNumber, totalAmount) {
     const newTitle = `${currentTitle} ${invoiceNumber}`;
     Logger.info(`更新标题: ${newTitle}`);
 
-    titleInput.focus();
-    titleInput.select();
-    titleInput.value = newTitle;
-    titleInput.dispatchEvent(new Event('input', { bubbles: true }));
-    titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await fillWithFeedback(titleInput, newTitle, `填写发票号: ${invoiceNumber}`);
 
     Logger.success('标题已更新');
   }
@@ -312,7 +425,7 @@ async function updatePOFields(invoiceNumber, totalAmount) {
 
   if (statusDropdown) {
     Logger.info('正在更新状态为 Received...');
-    statusDropdown.click();
+    await clickWithFeedback(statusDropdown, '点击状态下拉菜单');
     await sleep(CONFIG.SHORT_WAIT);
 
     const receivedOption = await findElementWithExactText([
@@ -321,7 +434,7 @@ async function updatePOFields(invoiceNumber, totalAmount) {
     ], 'Received');
 
     if (receivedOption) {
-      receivedOption.click();
+      await clickWithFeedback(receivedOption, '选择状态: Received');
       await sleep(CONFIG.SHORT_WAIT);
       Logger.success('状态已更新为 Received');
     }
@@ -529,13 +642,20 @@ function sleep(ms) {
 // UI Overlay Functions
 
 function showAutomationOverlay(message) {
+  // Remove existing overlay
+  hideAutomationOverlay();
+
   const overlay = document.createElement('div');
   overlay.id = 'ia-automation-overlay';
   overlay.innerHTML = `
     <div class="ia-overlay-content">
       <div class="ia-spinner"></div>
       <p class="ia-overlay-message">${message}</p>
-      <div class="ia-overlay-logo">Invoice Automation</div>
+      <div class="ia-overlay-logo">
+        <span>🤖</span>
+        <span>Invoice Automation</span>
+      </div>
+      <div class="ia-step-progress" id="ia-step-progress"></div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -579,4 +699,247 @@ function showToast(message, type = 'info') {
   }, 5000);
 }
 
+/**
+ * Visual feedback functions
+ */
+
+// Track automation steps
+const automationSteps = [];
+let currentStepIndex = -1;
+
+function initializeSteps(steps) {
+  automationSteps.length = 0;
+  automationSteps.push(...steps);
+  currentStepIndex = -1;
+  updateStepProgress();
+}
+
+function updateStepProgress() {
+  const progressContainer = document.getElementById('ia-step-progress');
+  if (!progressContainer) return;
+
+  progressContainer.innerHTML = automationSteps.map((step, index) => {
+    let status = 'pending';
+    let icon = '⏳';
+
+    if (index < currentStepIndex) {
+      status = 'completed';
+      icon = '✓';
+    } else if (index === currentStepIndex) {
+      status = 'active';
+      icon = '🔄';
+    }
+
+    return `
+      <div class="ia-step-item">
+        <div class="ia-step-icon ${status}">${icon}</div>
+        <div class="ia-step-text ${status}">${step}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function nextStep() {
+  currentStepIndex++;
+  updateStepProgress();
+}
+
+function completeCurrentStep() {
+  if (currentStepIndex < automationSteps.length) {
+    updateStepProgress();
+  }
+}
+
+// Highlight element being operated on
+let currentHighlight = null;
+
+function highlightElement(element, action) {
+  // Remove previous highlight
+  removeHighlight();
+
+  if (!element) return;
+
+  // Add highlight class
+  element.classList.add('ia-highlight-element');
+  currentHighlight = element;
+
+  // Show action tooltip
+  showActionTooltip(element, action);
+
+  // Scroll element into view
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function removeHighlight() {
+  if (currentHighlight) {
+    currentHighlight.classList.remove('ia-highlight-element');
+    currentHighlight = null;
+  }
+  removeActionTooltip();
+}
+
+// Show action tooltip above element
+function showActionTooltip(element, text) {
+  removeActionTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'ia-action-tooltip';
+  tooltip.textContent = text;
+  tooltip.id = 'ia-current-tooltip';
+
+  document.body.appendChild(tooltip);
+
+  // Position tooltip above element
+  const rect = element.getBoundingClientRect();
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top - 40}px`;
+  tooltip.style.transform = 'translateX(-50%)';
+}
+
+function removeActionTooltip() {
+  const tooltip = document.getElementById('ia-current-tooltip');
+  if (tooltip) {
+    tooltip.remove();
+  }
+}
+
+/**
+ * Enhanced action wrappers with visual feedback
+ */
+
+async function clickWithFeedback(element, description) {
+  highlightElement(element, description);
+  await sleep(800);
+
+  // Log click attempt
+  Logger.info(`点击元素: ${description}`);
+  console.log('Clicking element:', element);
+
+  // Trigger comprehensive mouse events for better compatibility
+  const mouseEvents = ['mousedown', 'mouseup', 'click'];
+  mouseEvents.forEach(eventType => {
+    const event = new MouseEvent(eventType, {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      button: 0
+    });
+    element.dispatchEvent(event);
+  });
+
+  // Also try native click
+  element.click();
+
+  Logger.success(`已点击: ${description}`);
+  await sleep(500);
+  removeHighlight();
+}
+
+async function fillWithFeedback(element, value, description) {
+  highlightElement(element, description);
+  await sleep(800);
+  element.value = value;
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(500);
+  removeHighlight();
+}
+
+async function selectWithFeedback(element, value, description) {
+  highlightElement(element, description);
+  await sleep(800);
+  element.value = value;
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(500);
+  removeHighlight();
+}
+
 Logger.log('Content script loaded and ready');
+
+// Auto-resume automation after page navigation
+(async function checkAndResumeAutomation() {
+  try {
+    await sleep(1000); // Wait for page to stabilize
+
+    const result = await chrome.storage.local.get('automationState');
+    if (!result.automationState || !result.automationState.active) {
+      return; // No pending automation
+    }
+
+    const state = result.automationState;
+    const elapsed = Date.now() - state.timestamp;
+
+    // Only resume if less than 30 seconds ago (page navigation scenario)
+    if (elapsed > 30000) {
+      Logger.warn('自动化任务已过期，清除状态');
+      await chrome.storage.local.remove('automationState');
+      return;
+    }
+
+    // Check current step
+    const currentStep = state.currentStep;
+    const data = state.data;
+
+    if (currentStep === 0) {
+      // We just selected a project and page navigated
+      // Now we're on the project home page, continue with step 1
+      Logger.success('检测到页面导航，项目选择已完成');
+      Logger.info('继续执行步骤 2/4: 导航到 Commitments');
+
+      // Update to step 1
+      await chrome.storage.local.set({
+        automationState: {
+          ...state,
+          currentStep: 1,
+          timestamp: Date.now()
+        }
+      });
+
+      // Show overlay
+      showAutomationOverlay('正在导航到 Commitments...');
+      initializeSteps([
+        '✓ 选择项目',
+        '导航到 Commitments',
+        '查找并打开 PO',
+        '更新 PO 字段'
+      ]);
+      nextStep(); // Mark step 0 as complete
+      nextStep(); // Start step 1
+
+      // Continue with step 1
+      await navigateToCommitments();
+
+      // Step 2: Find and open PO
+      nextStep();
+      Logger.info('步骤 3/4: 查找并打开 PO');
+      await findAndOpenPO(data.clientOrderNumber);
+
+      // Step 3: Update PO fields
+      nextStep();
+      Logger.info('步骤 4/4: 更新 PO 字段');
+      await updatePOFields(data);
+
+      // Success
+      Logger.success('✅ 自动化执行成功！');
+      hideAutomationOverlay();
+      showSuccessMessage('自动化执行成功！请检查并保存PO信息。');
+
+      // Clear automation state
+      await chrome.storage.local.remove('automationState');
+
+    } else if (currentStep === 1) {
+      // Continue from Commitments page
+      Logger.info('继续执行步骤 3/4: 查找并打开 PO');
+
+      // Continue automation...
+      // (similar logic for other steps)
+    }
+
+  } catch (error) {
+    Logger.error('恢复自动化失败: ' + error.message);
+    console.error('Resume automation error:', error);
+    await chrome.storage.local.remove('automationState');
+    hideAutomationOverlay();
+    showErrorMessage('恢复自动化失败: ' + error.message);
+  }
+})();

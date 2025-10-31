@@ -9,7 +9,7 @@ echo "============================================"
 echo ""
 
 # 创建输出目录
-OUTPUT_DIR="InvoiceAutomation-ChromeExtension-v1.2.0"
+OUTPUT_DIR="InvoiceAutomation-ChromeExtension-v1.4.3"
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Automation - 设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>⚙️ 扩展设置</h1>
+      <p class="subtitle">Invoice Automation Configuration</p>
+    </div>
+
+    <!-- API Configuration Section -->
+    <div class="section">
+      <div class="section-header">
+        <h2>🔑 API 配置</h2>
+        <p class="section-description">配置 OpenAI API Key 以启用发票智能识别功能</p>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKeyInput">
+          <span class="label-text">OpenAI API Key</span>
+          <span class="label-required">*</span>
+        </label>
+        <div class="input-wrapper">
+          <input
+            type="password"
+            id="apiKeyInput"
+            class="input-field"
+            placeholder="sk-..."
+          >
+          <button id="toggleVisibilityBtn" class="toggle-btn" type="button">
+            <svg class="icon" id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <div class="field-hint">
+          <svg class="hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>从 <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> 获取您的 API Key</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="apiUrlInput">
+          <span class="label-text">API 地址</span>
+          <span class="label-optional">(可选)</span>
+        </label>
+        <input
+          type="text"
+          id="apiUrlInput"
+          class="input-field"
+          placeholder="https://api.openai.com/v1/chat/completions"
+        >
+        <div class="field-hint">
+          <svg class="hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>使用自定义 API 端点（如使用代理服务）</span>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="testApiBtn" class="btn btn-secondary">
+          🧪 测试连接
+        </button>
+        <button id="saveBtn" class="btn btn-primary">
+          💾 保存设置
+        </button>
+      </div>
+    </div>
+
+    <!-- Update Settings Section -->
+    <div class="section">
+      <div class="section-header">
+        <h2>🔄 更新设置</h2>
+        <p class="section-description">配置扩展自动更新行为</p>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-group">
+          <input type="checkbox" id="autoUpdateCheck" checked>
+          <label for="autoUpdateCheck">
+            <span class="checkbox-label">启用自动更新检查</span>
+            <span class="checkbox-description">每24小时自动检查一次新版本</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="info-row">
+          <span class="info-label">当前版本：</span>
+          <span class="info-value" id="currentVersion">v1.4.3</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">最后检查时间：</span>
+          <span class="info-value" id="lastCheckTime">从未检查</span>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="checkUpdateBtn" class="btn btn-secondary">
+          🔄 立即检查更新
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message" style="display: none;">
+      <div class="status-icon" id="statusIcon"></div>
+      <div class="status-text" id="statusText"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-text">
+        <span>Invoice Automation v1.4.3</span> ·
+        <span>Powered by OpenAI GPT-4o</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/jundongGit/PO-workflow" target="_blank">GitHub</a>
+        <a href="#" id="documentationLink">文档</a>
+        <a href="#" id="feedbackLink">反馈</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Invoice Automation for Procore",
-  "version": "1.2.0",
+  "version": "1.4.3",
   "description": "AI-powered invoice processing and Procore automation. Upload PDF invoices and automatically fill Procore PO forms.",
   "permissions": [
     "storage",
@@ -9,7 +9,9 @@
     "tabs",
     "scripting",
     "notifications",
-    "alarms"
+    "alarms",
+    "downloads",
+    "management"
   ],
   "host_permissions": [
     "https://*.procore.com/*",
@@ -35,6 +37,10 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
   },
   "icons": {
     "16": "icons/icon16.png",

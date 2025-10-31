@@ -581,8 +581,7 @@ async function loadPreviousData() {
 // Footer Links
 function openSettings(event) {
   event.preventDefault();
-  // TODO: Implement settings page
-  alert('设置功能即将推出');
+  chrome.runtime.openOptionsPage();
 }
 
 function openHelp(event) {
@@ -812,23 +811,24 @@ async function handleUpdateDownload() {
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_UPDATE_INFO' });
     if (response.success && response.data) {
-      // 打开下载页面
-      chrome.tabs.create({ url: response.data.downloadUrl });
+      const updateInfo = response.data;
 
-      // 显示安装指引
-      setTimeout(() => {
-        alert('下载完成后请按照以下步骤安装：\n\n' +
-          '1. 解压 ZIP 文件\n' +
-          '2. 打开 Chrome 扩展页面 (chrome://extensions/)\n' +
-          '3. 开启"开发者模式"\n' +
-          '4. 点击"加载已解压的扩展程序"\n' +
-          '5. 选择解压后的 extension 文件夹\n\n' +
-          '提示：安装新版本会自动覆盖旧版本');
-      }, 500);
+      // 开始自动下载
+      const downloadUrl = updateInfo.downloadUrl;
+      const version = updateInfo.latestVersion;
+
+      // 打开更新引导页面
+      const updatePageUrl = chrome.runtime.getURL(
+        `update.html?version=${version}&url=${encodeURIComponent(downloadUrl)}`
+      );
+      chrome.tabs.create({ url: updatePageUrl });
+
+      // 隐藏更新横幅
+      await handleUpdateDismiss();
     }
   } catch (error) {
-    console.error('Open download failed:', error);
-    alert('打开下载页面失败: ' + error.message);
+    console.error('Start update failed:', error);
+    alert('启动更新失败: ' + error.message);
   }
 }
 
