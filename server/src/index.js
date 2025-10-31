@@ -21,6 +21,8 @@ app.use(express.json());
 // Ensure uploads and document directories exist
 const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 const DOCUMENT_DIR = path.join(__dirname, '../../document');
+const METADATA_FILE = path.join(__dirname, '../../metadata.json');
+
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
@@ -28,8 +30,37 @@ if (!fs.existsSync(DOCUMENT_DIR)) {
   fs.mkdirSync(DOCUMENT_DIR, { recursive: true });
 }
 
-// File metadata storage (in production, use a database)
+// File metadata storage with persistence
 const fileMetadata = new Map();
+
+// Load metadata from disk
+function loadMetadata() {
+  try {
+    if (fs.existsSync(METADATA_FILE)) {
+      const data = fs.readFileSync(METADATA_FILE, 'utf8');
+      const entries = JSON.parse(data);
+      entries.forEach(([key, value]) => {
+        fileMetadata.set(key, value);
+      });
+      console.log(`Loaded ${fileMetadata.size} file(s) from metadata storage`);
+    }
+  } catch (error) {
+    console.error('Failed to load metadata:', error.message);
+  }
+}
+
+// Save metadata to disk
+function saveMetadata() {
+  try {
+    const entries = Array.from(fileMetadata.entries());
+    fs.writeFileSync(METADATA_FILE, JSON.stringify(entries, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save metadata:', error.message);
+  }
+}
+
+// Load metadata on startup
+loadMetadata();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -142,6 +173,7 @@ app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
     };
 
     fileMetadata.set(fileName, metadata);
+    saveMetadata(); // Persist to disk
 
     console.log('File uploaded and processed successfully:', metadata);
 
@@ -169,39 +201,68 @@ app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
 // Trigger Procore automation
 app.post('/api/automate', async (req, res) => {
   try {
-    const { clientOrderNumber, invoiceNumber, totalAmount, fileId } = req.body;
+    const { clientOrderNumber, invoiceNumber, totalAmount, fileId, fileIds } = req.body;
 
     console.log('=== Automation Request Received ===');
     console.log('Client Order Number:', clientOrderNumber);
     console.log('Invoice Number:', invoiceNumber);
     console.log('Total Amount:', totalAmount);
-    console.log('File ID:', fileId);
+    console.log('Primary File ID:', fileId);
+    console.log('All File IDs:', fileIds);
 
     if (!clientOrderNumber) {
       return res.status(400).json({ error: 'Client Order Number is required' });
     }
 
-    // Get PDF file path from metadata if fileId is provided
-    let pdfFilePath = null;
-    if (fileId) {
-      console.log(`Looking up fileId: ${fileId}`);
+    // Get all PDF file paths from metadata
+    const pdfFilePaths = [];
+
+    if (fileIds && Array.isArray(fileIds) && fileIds.length > 0) {
+      console.log(`Looking up ${fileIds.length} file(s)...`);
       console.log('Available fileIds in metadata:', Array.from(fileMetadata.keys()));
+
+      for (const fId of fileIds) {
+        const metadata = fileMetadata.get(fId);
+        if (metadata) {
+          const filePath = metadata.documentPath || metadata.filePath;
+
+          // 验证文件是否存在
+          const fileExists = fs.existsSync(filePath);
+
+          pdfFilePaths.push(filePath);
+          console.log(`✅ Found metadata for fileId: ${fId}`);
+          console.log(`   File: ${metadata.originalName}`);
+          console.log(`   Path: ${filePath}`);
+          console.log(`   Exists: ${fileExists ? '✓' : '✗ FILE NOT FOUND!'}`);
+
+          if (!fileExists) {
+            console.error(`   ❌ File does not exist at path: ${filePath}`);
+            console.error(`   Document path: ${metadata.documentPath}`);
+            console.error(`   Upload path: ${metadata.filePath}`);
+          }
+        } else {
+          console.warn(`⚠️ File ID ${fId} not found in metadata`);
+        }
+      }
+
+      console.log(`Total files to upload: ${pdfFilePaths.length}`);
+    } else if (fileId) {
+      // Fallback: single file mode (backward compatibility)
+      console.log(`Looking up single fileId: ${fileId}`);
       const metadata = fileMetadata.get(fileId);
       if (metadata) {
-        // Use documentPath (file in document folder) instead of filePath (file in uploads folder)
-        pdfFilePath = metadata.documentPath || metadata.filePath;
+        const filePath = metadata.documentPath || metadata.filePath;
+        pdfFilePaths.push(filePath);
         console.log(`✅ Found metadata for fileId: ${fileId}`);
-        console.log(`Document path: ${metadata.documentPath}`);
-        console.log(`File path: ${metadata.filePath}`);
-        console.log(`Using PDF file: ${pdfFilePath}`);
+        console.log(`   Path: ${filePath}`);
       } else {
         console.error(`❌ File ID ${fileId} not found in metadata`);
       }
     } else {
-      console.warn('⚠️ No fileId provided in request');
+      console.warn('⚠️ No fileId or fileIds provided in request');
     }
 
-    const result = await automateProcore(clientOrderNumber, invoiceNumber, totalAmount, pdfFilePath);
+    const result = await automateProcore(clientOrderNumber, invoiceNumber, totalAmount, pdfFilePaths);
 
     res.json({
       success: true,
@@ -295,6 +356,7 @@ app.delete('/api/files/:id', (req, res) => {
 
     // Delete metadata
     fileMetadata.delete(fileId);
+    saveMetadata(); // Persist to disk
 
     res.json({
       success: true,
@@ -350,6 +412,158 @@ app.post('/api/browser/close', async (req, res) => {
   }
 });
 
+// Settings management
+const SETTINGS_FILE = path.join(__dirname, '../../settings.json');
+
+// Load settings from file
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error.message);
+  }
+  return {};
+}
+
+// Save settings to file
+function saveSettings(settings) {
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Failed to save settings:', error.message);
+    return false;
+  }
+}
+
+// Get settings
+app.get('/api/settings', (req, res) => {
+  try {
+    const settings = loadSettings();
+    // Return settings but mask the API key (only show last 4 characters)
+    const maskedSettings = {
+      ...settings,
+      openaiApiKey: settings.openaiApiKey
+        ? `${settings.openaiApiKey.substring(0, 7)}...${settings.openaiApiKey.slice(-4)}`
+        : '',
+      hasApiKey: !!settings.openaiApiKey
+    };
+    res.json({
+      success: true,
+      settings: maskedSettings
+    });
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get settings',
+      details: error.message
+    });
+  }
+});
+
+// Update settings
+app.post('/api/settings', (req, res) => {
+  try {
+    const { openaiApiKey } = req.body;
+
+    if (!openaiApiKey || !openaiApiKey.startsWith('sk-')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OpenAI API Key format'
+      });
+    }
+
+    const currentSettings = loadSettings();
+    const newSettings = {
+      ...currentSettings,
+      openaiApiKey: openaiApiKey
+    };
+
+    if (saveSettings(newSettings)) {
+      // Update environment variable for current process
+      process.env.OPENAI_API_KEY = openaiApiKey;
+
+      console.log('OpenAI API Key updated successfully');
+      res.json({
+        success: true,
+        message: 'Settings saved successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to save settings'
+      });
+    }
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update settings',
+      details: error.message
+    });
+  }
+});
+
+// Test OpenAI API Key
+app.post('/api/settings/test', async (req, res) => {
+  try {
+    const { openaiApiKey } = req.body;
+
+    if (!openaiApiKey || !openaiApiKey.startsWith('sk-')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OpenAI API Key format'
+      });
+    }
+
+    // Test the API key by making a simple API call
+    const { default: OpenAI } = await import('openai');
+    const openai = new OpenAI({
+      apiKey: openaiApiKey
+    });
+
+    try {
+      // Make a minimal API call to test the key
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_tokens: 5
+      });
+
+      if (response && response.choices && response.choices.length > 0) {
+        res.json({
+          success: true,
+          message: 'API Key 验证成功！可以正常使用 GPT-4o',
+          model: 'gpt-4o'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'API 返回异常'
+        });
+      }
+    } catch (apiError) {
+      console.error('OpenAI API test failed:', apiError);
+      res.status(500).json({
+        success: false,
+        error: 'API Key 验证失败',
+        details: apiError.message
+      });
+    }
+  } catch (error) {
+    console.error('Error testing API key:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test API key',
+      details: error.message
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -361,4 +575,11 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Uploads directory: ${UPLOADS_DIR}`);
+
+  // Load settings on startup and override environment variables
+  const settings = loadSettings();
+  if (settings.openaiApiKey) {
+    process.env.OPENAI_API_KEY = settings.openaiApiKey;
+    console.log('OpenAI API Key loaded from settings');
+  }
 });

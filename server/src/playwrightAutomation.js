@@ -717,8 +717,23 @@ function extractOrderNumberVariants(clientOrderNumber) {
 /**
  * Step 4: Update PO fields (Title and Status)
  */
-async function uploadPDFAndUpdate(page, pdfFilePath, invoiceNumber, totalAmount = null) {
+async function uploadPDFAndUpdate(page, pdfFilePaths, invoiceNumber, totalAmount = null) {
   log('Step 4: Updating PO with invoice information...');
+
+  // Normalize pdfFilePaths to array for backward compatibility
+  let filePathsArray = [];
+  if (pdfFilePaths) {
+    if (Array.isArray(pdfFilePaths)) {
+      filePathsArray = pdfFilePaths.filter(p => p);
+    } else if (typeof pdfFilePaths === 'string') {
+      filePathsArray = [pdfFilePaths];
+    }
+  }
+
+  log(`Files to upload: ${filePathsArray.length}`);
+  filePathsArray.forEach((path, index) => {
+    log(`  File ${index + 1}: ${path.split('/').pop()}`);
+  });
 
   try {
     // Wait for PO page to load
@@ -937,8 +952,8 @@ async function uploadPDFAndUpdate(page, pdfFilePath, invoiceNumber, totalAmount 
     }
 
     // Step 4.3: Upload PDF file if provided
-    if (pdfFilePath) {
-      log('Step 4.3: Uploading PDF file...');
+    if (filePathsArray.length > 0) {
+      log(`Step 4.3: Uploading ${filePathsArray.length} PDF file(s)...`);
 
       try {
         // Look for "Attach files" button
@@ -1017,12 +1032,33 @@ async function uploadPDFAndUpdate(page, pdfFilePath, invoiceNumber, totalAmount 
 
             try {
               const fileChooser = await fileChooserPromise;
-              log(`Selecting file: ${pdfFilePath}`);
-              await fileChooser.setFiles(pdfFilePath);
-              log('File selected, waiting for upload...');
+              log(`Selecting ${filePathsArray.length} file(s)...`);
+
+              // 验证所有文件路径是否存在
+              const fs = await import('fs');
+              for (let i = 0; i < filePathsArray.length; i++) {
+                const path = filePathsArray[i];
+                const fileName = path.split('/').pop();
+                const exists = fs.existsSync(path);
+                log(`  ${i + 1}. ${fileName} - ${exists ? '✓ exists' : '✗ NOT FOUND'}`);
+                if (!exists) {
+                  log(`     Full path: ${path}`, 'ERROR');
+                }
+              }
+
+              // 只上传存在的文件
+              const validPaths = filePathsArray.filter(path => fs.existsSync(path));
+              if (validPaths.length === 0) {
+                log('No valid file paths found! Skipping file selection.', 'ERROR');
+                throw new Error('No valid file paths');
+              }
+
+              log(`Setting ${validPaths.length} valid file(s) to file chooser...`);
+              await fileChooser.setFiles(validPaths);
+              log('Files selected, waiting for upload...');
               await page.waitForTimeout(3000); // Wait for upload to complete
 
-              log('✓ PDF file uploaded successfully');
+              log(`✓ ${validPaths.length} PDF file(s) uploaded successfully`);
 
               // Step 4.4: Click "Attach" button after file upload
               log('Step 4.4: Looking for "Attach" button...');
@@ -1399,7 +1435,7 @@ async function uploadPDFAndUpdate(page, pdfFilePath, invoiceNumber, totalAmount 
         log('Continuing without file upload...', 'INFO');
       }
     } else {
-      log('No PDF file path provided, skipping file upload', 'INFO');
+      log('No PDF files provided, skipping file upload', 'INFO');
     }
 
     log('✓ Step 4 completed: PO fields updated (Title, Status, File Upload, and Schedule of Values)');
@@ -1443,17 +1479,34 @@ async function submitForm(page) {
 /**
  * Main automation function for Procore
  * Implements complete unattended automation workflow
+ * @param {string} clientOrderNumber - The client order number
+ * @param {string} invoiceNumber - The invoice number
+ * @param {string|null} totalAmount - The total amount (optional)
+ * @param {string|string[]|null} pdfFilePaths - Single file path or array of file paths
  */
-export async function automateProcore(clientOrderNumber, invoiceNumber, totalAmount = null, pdfFilePath = null) {
+export async function automateProcore(clientOrderNumber, invoiceNumber, totalAmount = null, pdfFilePaths = null) {
   let context = null;
   let page = null;
+
+  // Normalize pdfFilePaths to array
+  let filePathsArray = [];
+  if (pdfFilePaths) {
+    if (Array.isArray(pdfFilePaths)) {
+      filePathsArray = pdfFilePaths.filter(p => p); // Remove null/undefined
+    } else if (typeof pdfFilePaths === 'string') {
+      filePathsArray = [pdfFilePaths];
+    }
+  }
 
   try {
     log('=== Starting Procore Automation ===');
     log(`Client Order Number: ${clientOrderNumber}`);
     log(`Invoice Number: ${invoiceNumber}`);
     log(`Total Amount Ex GST: ${totalAmount || 'Not provided'}`);
-    log(`PDF File Path: ${pdfFilePath || 'Not provided'}`);
+    log(`PDF Files Count: ${filePathsArray.length}`);
+    filePathsArray.forEach((path, index) => {
+      log(`  File ${index + 1}: ${path}`);
+    });
 
     // Initialize browser with persistent context
     ({ context, page } = await initBrowser());
@@ -1465,7 +1518,7 @@ export async function automateProcore(clientOrderNumber, invoiceNumber, totalAmo
     await selectProject(page, clientOrderNumber);
     await navigateToCommitments(page);
     await findAndOpenPO(page, clientOrderNumber);
-    await uploadPDFAndUpdate(page, pdfFilePath, invoiceNumber, totalAmount);
+    await uploadPDFAndUpdate(page, filePathsArray, invoiceNumber, totalAmount);
 
     log('=== Automation Completed Successfully ===');
     log('Browser will remain open for inspection', 'INFO');
@@ -1477,7 +1530,7 @@ export async function automateProcore(clientOrderNumber, invoiceNumber, totalAmo
       details: {
         project: clientOrderNumber,
         invoice: invoiceNumber,
-        pdfUploaded: pdfFilePath ? true : false
+        filesUploaded: filePathsArray.length
       }
     };
 
