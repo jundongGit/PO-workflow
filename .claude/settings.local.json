@@ -61,7 +61,12 @@
       "Bash(gh release upload:*)",
       "Bash(gh release edit:*)",
       "Bash(BROWSER=none npm start)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(sips:*)",
+      "Bash(convert:*)",
+      "Bash(iconutil -c icns:*)",
+      "Bash(npm run build:*)",
+      "Read(//Users/jundong/Downloads/**)"
     ],
     "deny": [],
     "ask": []
