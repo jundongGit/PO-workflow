@@ -1,36 +1,47 @@
-# Application Icons
+# 应用图标说明
 
-This directory contains application icons for different platforms.
+此目录用于存放应用图标文件。
 
-## Required Icons
+## 需要的图标文件
 
-### For Mac (macOS)
-- `icon.icns` - Mac application icon
-  - Create using: `iconutil -c icns icon.iconset`
-  - Or use online tools like CloudConvert
+在打包前，请准备以下图标文件：
 
-### For Windows
-- `icon.ico` - Windows application icon
-  - Should include multiple sizes: 16x16, 32x32, 48x48, 256x256
-  - Create using tools like GIMP or online converters
+### macOS
+- **文件名**: `icon.icns`
+- **推荐尺寸**: 1024x1024px
+- **格式**: ICNS
 
-### For Linux
-- `icon.png` - PNG format icon
-  - Recommended size: 512x512 or 1024x1024
+**创建方法**:
+- 在线工具: https://cloudconvert.com/png-to-icns
+- 或使用 macOS `iconutil` 命令
 
-## How to Generate Icons
+### Windows
+- **文件名**: `icon.ico`
+- **推荐尺寸**: 256x256px（包含多个尺寸）
+- **格式**: ICO
+- **包含尺寸**: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256
 
-1. Create a base PNG image (1024x1024 recommended)
-2. Use electron-icon-builder or similar tools:
-   ```
-   npm install -g electron-icon-builder
-   electron-icon-builder --input=./base-icon.png --output=./assets
-   ```
+**创建方法**:
+- 在线工具: https://icoconvert.com/
+- 或使用 ImageMagick
 
-3. Or use online tools:
-   - https://cloudconvert.com/ (for .icns conversion)
-   - https://icoconvert.com/ (for .ico conversion)
+### Linux
+- **文件名**: `icon.png`
+- **推荐尺寸**: 512x512px
+- **格式**: PNG
 
-## Temporary Solution
+## 图标设计建议
 
-If no icons are provided, Electron will use default icons. The application will still work normally.
+1. **简洁明了**: 图标应该在小尺寸下也能清晰识别
+2. **使用品牌色**: 保持与应用界面一致的颜色
+3. **避免细节过多**: 小尺寸时细节会丢失
+4. **背景透明**: 使用 PNG 格式时建议透明背景
+
+## 快速开始
+
+1. 准备一个 1024x1024px 的 PNG 图片
+2. 使用在线工具转换为各平台格式
+3. 将文件放到此目录
+4. 运行打包命令
+
+详细说明请参考: `../ELECTRON_BUILD_GUIDE.md`

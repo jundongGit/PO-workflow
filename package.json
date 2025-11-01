@@ -43,7 +43,10 @@
       }
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.business"
     },
@@ -51,17 +54,24 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets/icon.png",
       "category": "Office"
     }
@@ -69,8 +79,9 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "^38.4.0",
+    "electron": "^38.5.0",
     "electron-builder": "^26.0.12",
+    "electron-is-dev": "^3.0.1",
     "wait-on": "^9.0.1"
   }
 }
