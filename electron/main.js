@@ -1,7 +1,6 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
-const isDev = require('electron-is-dev');
 const waitOn = require('wait-on');
 
 let mainWindow;
@@ -11,6 +10,9 @@ let frontendProcess;
 // 后端服务器端口
 const BACKEND_PORT = 3001;
 const FRONTEND_PORT = 3000;
+
+// 检测是否为开发模式
+const isDev = !app.isPackaged;
 
 // 启动后端服务器
 function startBackend() {
