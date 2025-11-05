@@ -18,7 +18,7 @@ if %errorlevel% neq 0 (
 )
 
 REM 获取 GitHub 仓库信息
-set GITHUB_REPO=jundonggit/po-workflow
+set GITHUB_REPO=jundongGit/PO-workflow
 set TEMP_DIR=%TEMP%\po-workflow-update
 
 echo 📡 正在检查最新版本...

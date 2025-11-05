@@ -1,8 +1,8 @@
 {
   "updateSource": "github",
   "github": {
-    "owner": "jundonggit",
-    "repo": "po-workflow",
+    "owner": "jundongGit",
+    "repo": "PO-workflow",
     "branch": "main"
   },
   "autoCheck": true,

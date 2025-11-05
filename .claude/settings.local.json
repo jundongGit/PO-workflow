@@ -7,7 +7,12 @@
       "Bash(node src/index.js:*)",
       "Bash(curl http://localhost:3001)",
       "Bash(curl:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(where:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

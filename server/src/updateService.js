@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 配置你的 GitHub 仓库信息
-const GITHUB_REPO = 'jundonggit/po-workflow'; // 替换为你的仓库
+const GITHUB_REPO = 'jundongGit/PO-workflow'; // 替换为你的仓库
 const UPDATE_CHECK_INTERVAL = 3600000; // 1小时检查一次
 
 /**
