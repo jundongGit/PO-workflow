@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c quick-start.bat:*)",
+      "Bash(npm install)",
+      "Bash(copy server.env.example server.env)",
+      "Bash(node src/index.js:*)",
+      "Bash(curl http://localhost:3001)",
+      "Bash(curl:*)",
+      "Bash(git config:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "updateSource": "github",
+  "github": {
+    "owner": "jundonggit",
+    "repo": "po-workflow",
+    "branch": "main"
+  },
+  "autoCheck": true,
+  "checkInterval": 3600000,
+  "notifyUser": true,
+  "autoDownload": false,
+  "backupBeforeUpdate": true
+}

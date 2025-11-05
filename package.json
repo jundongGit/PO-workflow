@@ -1,0 +1,30 @@
+{
+  "name": "po-workflow",
+  "version": "1.2.0",
+  "description": "Invoice PDF automation tool - Upload PDF invoices, auto-extract information and sync to Procore",
+  "main": "server/src/index.js",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm start",
+    "build:client": "cd client && npm run build",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "package": "node package-build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jundonggit/po-workflow.git"
+  },
+  "keywords": [
+    "invoice",
+    "automation",
+    "pdf",
+    "procore",
+    "workflow"
+  ],
+  "author": "jundonggit",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

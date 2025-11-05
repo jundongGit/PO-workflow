@@ -1,0 +1,23 @@
+{
+  "version": "1.2.0",
+  "releaseDate": "2025-11-05",
+  "buildDate": "2025-11-05T08:30:00.000Z",
+  "description": "Invoice PDF automation tool - Upload PDF invoices, auto-extract information and sync to Procore",
+  "changes": [
+    "添加远程自动更新功能",
+    "修复 OpenAI API Key 加载问题",
+    "优化 AI 模型信息记录",
+    "改进静态文件服务配置",
+    "添加版本检查和更新通知"
+  ],
+  "changelog": [
+    "v1.2.0 - Added remote auto-update system",
+    "v1.2.0 - Fixed OpenAI API Key loading issue",
+    "v1.2.0 - Improved AI model metadata recording",
+    "v1.1.0 - Enhanced PO number matching with leading zero handling",
+    "v1.1.0 - Improved search functionality for commitments",
+    "v1.0.0 - Initial release"
+  ],
+  "requiresUpdate": false,
+  "breakingChanges": []
+}
